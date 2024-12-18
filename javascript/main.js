@@ -128,7 +128,7 @@ import { parseMTL, parseOBJ } from "./parseObj.js";
     );
 
     const sharedUniforms = {
-      u_lightDirection: m4.normalize([-0.5, 0.5, 1]),
+      u_lightDirection: m4.normalize([1, -0.1, -1]),
       u_ambientLight: [0, 0, 0],
       u_view: viewMatrix,
       u_projection: projectionMatrix,
