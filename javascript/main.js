@@ -5,13 +5,11 @@ import { getGeometriesExtents, degToRad } from "./utils.js";
 import { parseMTL, parseOBJ } from "./parseObj.js";
 
 const defaultState = {
-  radius: 1.2,
-  cameraAngleX: 0.5,
+  cameraAngleX: 0.2,
   cameraAngleY: 89.5,
 };
 
 (async function initializeScene() {
-  /** @type {HTMLCanvasElement} */
   const canvas = document.querySelector("canvas");
   const gl = canvas.getContext("webgl");
 
@@ -60,7 +58,8 @@ const defaultState = {
     -1
   );
 
-  let cameraDistance = defaultState.radius;
+  let cameraDistance =
+    m4.length(m4.subtractVectors(bounds.max, bounds.min)) * 0.7;
   let cameraRotationX = defaultState.cameraAngleX,
     cameraRotationY = defaultState.cameraAngleY;
 
@@ -156,5 +155,3 @@ const defaultState = {
 
   renderScene();
 })();
-
-// Lucky Santoso
