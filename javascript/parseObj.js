@@ -1,41 +1,41 @@
 "use strict";
 
 export function parseOBJ(text) {
-  const objPositions = [[0, 0, 0]];
-  const objTexcoords = [[0, 0]];
-  const objNormals = [[0, 0, 0]];
-  const objColors = [[0, 0, 0]];
+  const positions = [[0, 0, 0]];
+  const texcoords = [[0, 0]];
+  const normals = [[0, 0, 0]];
+  const colors = [[0, 0, 0]];
 
-  const objVertexData = [objPositions, objTexcoords, objNormals, objColors];
+  const vertexData = [positions, texcoords, normals, colors];
 
-  let webglVertexData = [[], [], [], []];
+  let webglData = [[], [], [], []];
 
-  const materialLibs = [];
-  const geometries = [];
-  let geometry;
-  let groups = ["default"];
-  let material = "default";
-  let object = "default";
+  const materialLibraries = [];
+  const shapes = [];
+  let currentShape;
+  let currentGroups = ["default"];
+  let currentMaterial = "default";
+  let currentObject = "default";
 
   const noop = () => {};
 
-  function newGeometry() {
-    if (geometry && geometry.data.position.length) {
-      geometry = undefined;
+  function createNewShape() {
+    if (currentShape && currentShape.data.position.length) {
+      currentShape = undefined;
     }
   }
 
-  function setGeometry() {
-    if (!geometry) {
+  function ensureShape() {
+    if (!currentShape) {
       const position = [];
       const texcoord = [];
       const normal = [];
       const color = [];
-      webglVertexData = [position, texcoord, normal, color];
-      geometry = {
-        object,
-        groups,
-        material,
+      webglData = [position, texcoord, normal, color];
+      currentShape = {
+        object: currentObject,
+        groups: currentGroups,
+        material: currentMaterial,
         data: {
           position,
           texcoord,
@@ -43,97 +43,91 @@ export function parseOBJ(text) {
           color,
         },
       };
-      geometries.push(geometry);
+      shapes.push(currentShape);
     }
   }
 
-  function addVertex(vert) {
-    const ptn = vert.split("/");
-    ptn.forEach((objIndexStr, i) => {
-      if (!objIndexStr) {
-        return;
-      }
-      const objIndex = parseInt(objIndexStr);
-      const index = objIndex + (objIndex >= 0 ? 0 : objVertexData[i].length);
-      webglVertexData[i].push(...objVertexData[i][index]);
-      if (i === 0 && objColors.length > 1) {
-        geometry.data.color.push(...objColors[index]);
+  function addVertexData(vertex) {
+    const indices = vertex.split("/");
+    indices.forEach((indexStr, i) => {
+      if (!indexStr) return;
+      const index = parseInt(indexStr);
+      const adjustedIndex = index + (index >= 0 ? 0 : vertexData[i].length);
+      webglData[i].push(...vertexData[i][adjustedIndex]);
+      if (i === 0 && colors.length > 1) {
+        currentShape.data.color.push(...colors[adjustedIndex]);
       }
     });
   }
 
-  const keywords = {
+  const handlers = {
     v(parts) {
       if (parts.length > 3) {
-        objPositions.push(parts.slice(0, 3).map(parseFloat));
-        objColors.push(parts.slice(3).map(parseFloat));
+        positions.push(parts.slice(0, 3).map(parseFloat));
+        colors.push(parts.slice(3).map(parseFloat));
       } else {
-        objPositions.push(parts.map(parseFloat));
+        positions.push(parts.map(parseFloat));
       }
     },
     vn(parts) {
-      objNormals.push(parts.map(parseFloat));
+      normals.push(parts.map(parseFloat));
     },
     vt(parts) {
-      objTexcoords.push(parts.map(parseFloat));
+      texcoords.push(parts.map(parseFloat));
     },
     f(parts) {
-      setGeometry();
-      const numTriangles = parts.length - 2;
-      for (let tri = 0; tri < numTriangles; ++tri) {
-        addVertex(parts[0]);
-        addVertex(parts[tri + 1]);
-        addVertex(parts[tri + 2]);
+      ensureShape();
+      const triangleCount = parts.length - 2;
+      for (let i = 0; i < triangleCount; ++i) {
+        addVertexData(parts[0]);
+        addVertexData(parts[i + 1]);
+        addVertexData(parts[i + 2]);
       }
     },
     s: noop,
     mtllib(parts, unparsedArgs) {
-      materialLibs.push(unparsedArgs);
+      materialLibraries.push(unparsedArgs);
     },
     usemtl(parts, unparsedArgs) {
-      material = unparsedArgs;
-      newGeometry();
+      currentMaterial = unparsedArgs;
+      createNewShape();
     },
     g(parts) {
-      groups = parts;
-      newGeometry();
+      currentGroups = parts;
+      createNewShape();
     },
     o(parts, unparsedArgs) {
-      object = unparsedArgs;
-      newGeometry();
+      currentObject = unparsedArgs;
+      createNewShape();
     },
   };
 
-  const keywordRE = /(\w*)(?: )*(.*)/;
+  const keywordRegex = /(\w*)(?: )*(.*)/;
   const lines = text.split("\n");
-  for (let lineNo = 0; lineNo < lines.length; ++lineNo) {
-    const line = lines[lineNo].trim();
-    if (line === "" || line.startsWith("#")) {
-      continue;
-    }
-    const m = keywordRE.exec(line);
-    if (!m) {
-      continue;
-    }
-    const [, keyword, unparsedArgs] = m;
+  for (let i = 0; i < lines.length; ++i) {
+    const line = lines[i].trim();
+    if (line === "" || line.startsWith("#")) continue;
+    const match = keywordRegex.exec(line);
+    if (!match) continue;
+    const [, keyword, unparsedArgs] = match;
     const parts = line.split(/\s+/).slice(1);
-    const handler = keywords[keyword];
+    const handler = handlers[keyword];
     if (!handler) {
-      console.warn("unhandled keyword:", keyword);
+      console.warn("Unhandled keyword:", keyword);
       continue;
     }
     handler(parts, unparsedArgs);
   }
 
-  for (const geometry of geometries) {
-    geometry.data = Object.fromEntries(
-      Object.entries(geometry.data).filter(([, array]) => array.length > 0)
+  for (const shape of shapes) {
+    shape.data = Object.fromEntries(
+      Object.entries(shape.data).filter(([, array]) => array.length > 0)
     );
   }
 
   return {
-    geometries,
-    materialLibs,
+    geometries: shapes,
+    materialLibs: materialLibraries,
   };
 }
 
@@ -143,55 +137,51 @@ export function parseMapArgs(unparsedArgs) {
 
 export function parseMTL(text) {
   const materials = {};
-  let material;
+  let currentMaterial;
 
-  const keywords = {
+  const handlers = {
     newmtl(parts, unparsedArgs) {
-      material = {};
-      materials[unparsedArgs] = material;
+      currentMaterial = {};
+      materials[unparsedArgs] = currentMaterial;
     },
     Ns(parts) {
-      material.shininess = parseFloat(parts[0]);
+      currentMaterial.shininess = parseFloat(parts[0]);
     },
     Ka(parts) {
-      material.ambient = parts.map(parseFloat);
+      currentMaterial.ambient = parts.map(parseFloat);
     },
     Kd(parts) {
-      material.diffuse = parts.map(parseFloat);
+      currentMaterial.diffuse = parts.map(parseFloat);
     },
     Ks(parts) {
-      material.specular = parts.map(parseFloat);
+      currentMaterial.specular = parts.map(parseFloat);
     },
     Ke(parts) {
-      material.emissive = parts.map(parseFloat);
+      currentMaterial.emissive = parts.map(parseFloat);
     },
     Ni(parts) {
-      material.opticalDensity = parseFloat(parts[0]);
+      currentMaterial.opticalDensity = parseFloat(parts[0]);
     },
     d(parts) {
-      material.opacity = parseFloat(parts[0]);
+      currentMaterial.opacity = parseFloat(parts[0]);
     },
     illum(parts) {
-      material.illum = parseInt(parts[0]);
+      currentMaterial.illum = parseInt(parts[0]);
     },
   };
 
-  const keywordRE = /(\w*)(?: )*(.*)/;
+  const keywordRegex = /(\w*)(?: )*(.*)/;
   const lines = text.split("\n");
-  for (let lineNo = 0; lineNo < lines.length; ++lineNo) {
-    const line = lines[lineNo].trim();
-    if (line === "" || line.startsWith("#")) {
-      continue;
-    }
-    const m = keywordRE.exec(line);
-    if (!m) {
-      continue;
-    }
-    const [, keyword, unparsedArgs] = m;
+  for (let i = 0; i < lines.length; ++i) {
+    const line = lines[i].trim();
+    if (line === "" || line.startsWith("#")) continue;
+    const match = keywordRegex.exec(line);
+    if (!match) continue;
+    const [, keyword, unparsedArgs] = match;
     const parts = line.split(/\s+/).slice(1);
-    const handler = keywords[keyword];
+    const handler = handlers[keyword];
     if (!handler) {
-      console.warn("unhandled keyword:", keyword);
+      console.warn("Unhandled keyword:", keyword);
       continue;
     }
     handler(parts, unparsedArgs);

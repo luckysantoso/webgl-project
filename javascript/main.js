@@ -4,6 +4,12 @@ import { vertexShaders, fragmentShaders } from "./shaders.js";
 import { getGeometriesExtents, degToRad } from "./utils.js";
 import { parseMTL, parseOBJ } from "./parseObj.js";
 
+const defaultState = {
+  radius: 1.2,
+  cameraAngleX: 0.5,
+  cameraAngleY: 89.5,
+};
+
 (async function initializeScene() {
   /** @type {HTMLCanvasElement} */
   const canvas = document.querySelector("canvas");
@@ -54,10 +60,9 @@ import { parseMTL, parseOBJ } from "./parseObj.js";
     -1
   );
 
-  let cameraDistance =
-    m4.length(m4.subtractVectors(bounds.max, bounds.min)) * 0.7;
-  let cameraRotationX = 0,
-    cameraRotationY = 0;
+  let cameraDistance = defaultState.radius;
+  let cameraRotationX = defaultState.cameraAngleX,
+    cameraRotationY = defaultState.cameraAngleY;
 
   const zoomLimits = {
     near: cameraDistance / 100,
@@ -128,7 +133,7 @@ import { parseMTL, parseOBJ } from "./parseObj.js";
     );
 
     const sharedUniforms = {
-      u_lightDirection: m4.normalize([1, -0.1, -1]),
+      u_lightDirection: m4.normalize([1, 0.1, -1]),
       u_ambientLight: [0, 0, 0],
       u_view: viewMatrix,
       u_projection: projectionMatrix,
@@ -151,3 +156,5 @@ import { parseMTL, parseOBJ } from "./parseObj.js";
 
   renderScene();
 })();
+
+// Lucky Santoso
